@@ -103,8 +103,12 @@ static char *my_pwdb_lookup(const char *user)
 		goto err_out;
 
 	step = "fetch";
-	if (mysql_stmt_fetch(stmt))
+	int fetch_res = mysql_stmt_fetch(stmt);
+	if (fetch_res == 1 || fetch_res == MYSQL_DATA_TRUNCATED)
 		goto err_out;
+
+	if (fetch_res == MYSQL_NO_DATA)
+	    return NULL;
 
 	pass_len = bind_res_lengths[0];
 
@@ -120,9 +124,9 @@ static char *my_pwdb_lookup(const char *user)
 	return pass_ret;
 
 err_out:
+	applog(LOG_ERR, "mysql pwdb query failed at %s: \"%s\"", step, mysql_stmt_error(stmt));
 	mysql_stmt_close(stmt);
 
-	applog(LOG_ERR, "mysql pwdb query failed at %s", step);
 	return NULL;
 }
 
@@ -170,7 +174,7 @@ out:
 	return rc;
 
 err_out:
-	applog(LOG_ERR, "mysql sharelog failed at %s", step);
+	applog(LOG_ERR, "mysql sharelog failed at %s: \"%s\"", step, mysql_stmt_error(stmt));
 	goto out;
 }
 
